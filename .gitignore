@@ -19,4 +19,4 @@ wheels/
 /.github/copilot-instructions.md
 
 # Data folders
-/data/processed
+/data
