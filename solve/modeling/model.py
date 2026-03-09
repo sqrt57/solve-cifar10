@@ -122,6 +122,31 @@ class Resnet8(nn.Module):
         return self.linear(x.reshape(x.shape[0], -1))
 
 
+class Resnet14(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv = nn.Conv2d(3, 16, kernel_size=3, padding=1, bias=False)
+        self.batchnorm = nn.BatchNorm2d(16)
+        self.resblock1 = ResnetBlock(16)
+        self.resblock2 = ResnetBlock(16)
+        self.resblock3 = ResnetResizeBlock(16, 32, stride=2)
+        self.resblock4 = ResnetBlock(32)
+        self.resblock5 = ResnetResizeBlock(32, 64, stride=2)
+        self.resblock6 = ResnetBlock(64)
+        self.linear = nn.Linear(64, 10)
+
+    def forward(self, x):
+        x = F.relu(self.batchnorm(self.conv(x)))
+        x = self.resblock1(x)
+        x = self.resblock2(x)
+        x = self.resblock3(x)
+        x = self.resblock4(x)
+        x = self.resblock5(x)
+        x = self.resblock6(x)
+        x = F.avg_pool2d(x, kernel_size=8)
+        return self.linear(x.reshape(x.shape[0], -1))
+
+
 class Resnet20(nn.Module):
     def __init__(self):
         super().__init__()

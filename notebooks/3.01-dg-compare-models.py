@@ -30,6 +30,7 @@ from torch import nn
 import torch.nn.functional as F
 # from torch.utils.data import DataLoader, Subset
 import torchvision
+import torch.optim.lr_scheduler as lrs
 from torch.profiler import profile, ProfilerActivity, record_function
 
 from solve.modeling.train import Hyper, Result, Trainer
@@ -42,38 +43,49 @@ device = torch.accelerator.current_accelerator().type
 print(f"Using {device} device")
 
 # %%
+torch.random.manual_seed(367779538)
 data_path = "../data/external"
-ds = cifar10_whole_dataset(data_path, 0.1).to(device)
-training_loader = DataLoader(ds.training, batch_size=200, shuffle=True)
+ds = cifar10_whole_dataset(data_path, 0.1, shuffle=True).to(device)
+training_loader = DataLoader(ds.training, batch_size=250, shuffle=True)
 
 # %%
 trainer = Trainer(training_loader, ds.validation, device=device)
 
 # %%
-# seed = 682200895
-# optimizer = torch.optim.Adam
-# optimizer_kwargs = {}
-# # lr_schedule = [(20,1e-3), (50,1e-4), (50, 1e-5)]
-# lr_schedule = [(5,3e-4)]
-# hypers = [
-#     Hyper(name=f'simple', seed=seed, model=models.SimpleModelPrelu, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-#     Hyper(name=f'Resnet8', seed=seed, model=models.Resnet8, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-#     Hyper(name=f'Resnet20', seed=seed, model=models.Resnet20, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-# ]
+if True:
+    seed = 682200895
+    optimizer = torch.optim.AdamW
+    optimizer_kwargs = {}
+    lr = 1e-3
+    nepochs = 30
+    def lr_scheduler(optimizer):
+        return lrs.MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 25], gamma=1/math.sqrt(10))
+    hypers = [
+        Hyper(name=f'Net', seed=seed, model=models.Net, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'Resnet8', seed=seed, model=models.Resnet8, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'Resnet14', seed=seed, model=models.Resnet14, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'Resnet20', seed=seed, model=models.Resnet20, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+    ]
 
 # %%
-seed = 682200895
-optimizer = torch.optim.AdamW
-optimizer_kwargs = {}
-# lr_schedule = [(20,1e-3), (50,1e-4), (50, 1e-5)]
-lr_schedule = [(50,1e-3),(50,1e-4),(50,1e-5)]
-hypers = [
-    Hyper(name=f'base', seed=seed, model=models.SimpleModel, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-    Hyper(name=f'BN', seed=seed, model=models.SimpleModelBatchNorm, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-    Hyper(name=f'PReLU', seed=seed, model=models.SimpleModelPrelu, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-    Hyper(name=f'BN PReLU', seed=seed, model=models.SimpleModelBatchNormPrelu, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-    Hyper(name=f'Net', seed=seed, model=models.Net, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, lr_schedule=lr_schedule, preprocess=False),
-]
+if False:
+    seed = 682200895
+    optimizer = torch.optim.AdamW
+    optimizer_kwargs = {}
+    lr = 1e-3
+    nepochs = 140
+    def lr_scheduler(optimizer):
+        return lrs.SequentialLR(optimizer, [
+            lrs.LinearLR(optimizer, start_factor=0.1, end_factor=1.0, total_iters=10),
+            lrs.MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1),
+        ], milestones=[10])
+    hypers = [
+        Hyper(name=f'base', seed=seed, model=models.SimpleModel, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'BN', seed=seed, model=models.SimpleModelBatchNorm, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'PReLU', seed=seed, model=models.SimpleModelPrelu, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'BN PReLU', seed=seed, model=models.SimpleModelBatchNormPrelu, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        Hyper(name=f'Net', seed=seed, model=models.Net, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+    ]
 
 # %%
 
@@ -128,3 +140,4 @@ fig.tight_layout()
 plt.plot()
 
 # %%
+plt.plot(results[0].epochs, results[0].lrs)

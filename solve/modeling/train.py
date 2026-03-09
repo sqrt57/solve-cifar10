@@ -10,8 +10,8 @@ from tqdm import tqdm
 from solve.dataset import DataSet, DataLoader
 
 
-Hyper = collections.namedtuple('Hyper', 'name seed model optimizer optimizer_kwargs lr_schedule preprocess', defaults=(False,))
-Result = collections.namedtuple('Result', 'hyper model epochs train_metrics validation_metrics')
+Hyper = collections.namedtuple('Hyper', 'name seed model optimizer optimizer_kwargs nepochs lr lr_scheduler preprocess', defaults=(False,))
+Result = collections.namedtuple('Result', 'hyper model epochs lrs train_metrics validation_metrics')
 
 
 class Metrics:
@@ -52,15 +52,6 @@ class AccuracyMetrics(Metrics):
         return total_correct * 100 / total_count
 
 
-def get_schedule(lr_points):
-    lr_schedule = []
-    epoch = 0
-    for item in lr_points:
-        for i in range(item[0]):
-            epoch += 1
-            lr_schedule.append((epoch, item[1]))
-    return lr_schedule
-
 class Trainer:
     def __init__(self, training: DataLoader, validation: DataSet, device = None, metrics: list[Metrics] | None = None):
         self.device = device
@@ -75,9 +66,11 @@ class Trainer:
         model = hyper.model()
         if self.device:
             model = model.to(device=self.device)
-        optimizer = hyper.optimizer(model.parameters(), lr=hyper.lr_schedule[0][1], **hyper.optimizer_kwargs)
+        optimizer = hyper.optimizer(model.parameters(), lr=hyper.lr, **hyper.optimizer_kwargs)
+        lr_scheduler = hyper.lr_scheduler(optimizer)
 
         epochs = []
+        lrs = []
         train_metrics = { metric.name(): [] for metric in self.metrics }
         validation_metrics = { metric.name(): [] for metric in self.metrics }
 
@@ -102,10 +95,9 @@ class Trainer:
                 loss = self.loss_fn(pred, labels_batch)
             return pred, loss
 
-        def run_epoch(epoch, lr, train):
+        def run_epoch(epoch, train):
             epochs.append(epoch)
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr
+            lrs.append(lr_scheduler.get_last_lr()[0])
 
             train_metric_chunks = { metric.name(): [] for metric in self.metrics }
             validation_metric_chunk = { }
@@ -124,12 +116,14 @@ class Trainer:
 
             for metric in self.metrics:
                 validation_metrics[metric.name()].append(metric.summarize([validation_metric_chunk[metric.name()]]))
+            
+            if (train):
+                lr_scheduler.step()
         
-        run_epoch(0, hyper.lr_schedule[0][1], train=False)
+        run_epoch(0, train=False)
 
-        lr_schedule = get_schedule(hyper.lr_schedule)
-        
-        for (epoch, lr) in tqdm(lr_schedule, desc="Epochs"):
-            run_epoch(epoch + 1, lr, train=True)
 
-        return Result(hyper=hyper, model=model, epochs=epochs, train_metrics=train_metrics, validation_metrics=validation_metrics)
+        for epoch in tqdm(range(hyper.nepochs), desc="Epochs"):
+            run_epoch(epoch + 1, train=True)
+
+        return Result(hyper=hyper, model=model.to(device="cpu"), epochs=epochs, lrs=lrs, train_metrics=train_metrics, validation_metrics=validation_metrics)
