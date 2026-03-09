@@ -46,7 +46,7 @@ print(f"Using {device} device")
 torch.random.manual_seed(367779538)
 data_path = "../data/external"
 ds = cifar10_whole_dataset(data_path, 0.1, shuffle=True).to(device)
-training_loader = DataLoader(ds.training, batch_size=250, shuffle=True)
+training_loader = DataLoader(ds.training, batch_size=64, shuffle=True)
 
 # %%
 trainer = Trainer(training_loader, ds.validation, device=device)
@@ -57,13 +57,13 @@ if True:
     optimizer = torch.optim.AdamW
     optimizer_kwargs = {}
     lr = 1e-3
-    nepochs = 30
+    nepochs = 60
     def lr_scheduler(optimizer):
-        return lrs.MultiStepLR(optimizer, milestones=[5, 10, 15, 20, 25], gamma=1/math.sqrt(10))
+        return lrs.MultiStepLR(optimizer, milestones=[10, 20, 30, 40, 50], gamma=1/math.sqrt(10))
     hypers = [
-        Hyper(name=f'Net', seed=seed, model=models.Net, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
-        Hyper(name=f'Resnet8', seed=seed, model=models.Resnet8, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
-        Hyper(name=f'Resnet14', seed=seed, model=models.Resnet14, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        # Hyper(name=f'Net', seed=seed, model=models.Net, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        # Hyper(name=f'Resnet8', seed=seed, model=models.Resnet8, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
+        # Hyper(name=f'Resnet14', seed=seed, model=models.Resnet14, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
         Hyper(name=f'Resnet20', seed=seed, model=models.Resnet20, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs, nepochs=nepochs, lr=lr, lr_scheduler=lr_scheduler, preprocess=False),
     ]
 
@@ -104,8 +104,8 @@ fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(10,  8))
 
 for result in results:
     ax1.plot(result.epochs, result.train_metrics['Accuracy'], label=result.hyper.name)
-# ax1.set_ylim(50., 100.)
-ax1.set_ylim(0., 100.)
+ax1.set_ylim(80., 100.)
+# ax1.set_ylim(0., 100.)
 ax1.set_xlabel("Epoch")
 ax1.set_title("Train accuracy")
 ax1.grid(True)
@@ -113,8 +113,8 @@ ax1.legend()
 
 for result in results:
     ax2.plot(result.epochs, result.validation_metrics['Accuracy'], label=result.hyper.name)
-# ax2.set_ylim(50., 100.)
-ax2.set_ylim(0., 100.)
+ax2.set_ylim(80., 100.)
+# ax2.set_ylim(0., 100.)
 ax2.set_xlabel("Epoch")
 ax2.set_title("Test accuracy")
 ax2.grid(True)
